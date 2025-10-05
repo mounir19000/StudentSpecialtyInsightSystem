@@ -28,14 +28,16 @@ interface Student {
   rang_s2?: number;
   moy_s2?: number;
   grades?: Record<string, number | null>;
+  module_rank?: number; // NEW: Rank for specific module
+  module_grade?: number; // NEW: Grade for specific module
 }
 
-interface PromoData {
-  promo: string;
-  studentCount: number;
-  uploadDate: string;
-  lastProcessed: string | null;
-  status: string;
+interface ModuleInfo {
+  module_name: string;
+  total_students_with_grade: number;
+  average_grade: number;
+  highest_grade: number;
+  lowest_grade: number;
 }
 
 interface StudentsResponse {
@@ -47,6 +49,15 @@ interface StudentsResponse {
     hasNextPage: boolean;
     hasPrevPage: boolean;
   };
+  module_info?: ModuleInfo; // NEW: Only present when ranking by module
+}
+
+interface PromoData {
+  promo: string;
+  studentCount: number;
+  uploadDate: string;
+  lastProcessed: string | null;
+  status: string;
 }
 
 const StudentList = () => {
@@ -55,51 +66,140 @@ const StudentList = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
   const [promoFilter, setPromoFilter] = useState("all");
-  const [sortBy, setSortBy] = useState<"rang" | "moyRachat">("rang");
+  const [sortBy, setSortBy] = useState<"rang" | "moyRachat" | "module">("rang");
+  const [moduleFilter, setModuleFilter] = useState("all");
   const [students, setStudents] = useState<Student[]>([]);
   const [promos, setPromos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [totalStudents, setTotalStudents] = useState(0);
+  const [moduleInfo, setModuleInfo] = useState<ModuleInfo | null>(null);
+
+  // Available modules for ranking
+  const availableModules = [
+    // Semester 1 modules
+    "SYS1",
+    "RES1",
+    "ANUM",
+    "RO",
+    "ORG",
+    "LANG1",
+    "IGL",
+    "THP",
+    // Semester 2 modules
+    "MCSI",
+    "BDD",
+    "SEC",
+    "CPROJ",
+    "PROJ",
+    "LANG2",
+    "ARCH",
+    "SYS2",
+    "RES2",
+  ];
 
   useEffect(() => {
     const fetchStudents = async () => {
       try {
         setLoading(true);
-        const params: {
-          page: number;
-          limit: number;
-          sortBy: string;
-          search?: string;
-          specialty?: string;
-          promo?: string;
-        } = {
-          page: currentPage,
-          limit: 50,
-          sortBy: sortBy === "moyRachat" ? "moyRachat" : "rang",
-        };
 
-        if (searchTerm) params.search = searchTerm;
-        if (specialtyFilter !== "all") params.specialty = specialtyFilter;
-        if (promoFilter !== "all") params.promo = promoFilter;
+        // When sorting by module, use the dedicated module ranking endpoint
+        if (sortBy === "module" && moduleFilter !== "all") {
+          const params: {
+            module: string;
+            page: number;
+            limit: number;
+            search?: string;
+            specialty?: string;
+            promo?: string;
+          } = {
+            module: moduleFilter,
+            page: currentPage,
+            limit: 50,
+          };
 
-        const response = await apiService.getStudents(params);
-        const data: StudentsResponse = response.data;
+          if (searchTerm) params.search = searchTerm;
+          if (specialtyFilter !== "all") params.specialty = specialtyFilter;
+          if (promoFilter !== "all") params.promo = promoFilter;
 
-        setStudents(data.students);
-        setTotalPages(data.pagination.totalPages);
-        setTotalStudents(data.pagination.totalStudents);
+          const response = await apiService.getStudentsByModule(params);
+          console.log("Module response:", response); // Debug log
+          console.log("Module response structure:", {
+            hasData: "data" in response,
+            hasStudents: response.data?.students || response.students,
+            keys: Object.keys(response),
+          });
+
+          // Handle different response structures
+          const data = response.data || response;
+          console.log("Using data:", data);
+
+          setStudents(data.students || []);
+          setTotalPages(data.pagination?.totalPages || 0);
+          setTotalStudents(data.pagination?.totalStudents || 0);
+          setModuleInfo(data.module_info || null);
+        } else {
+          // Normal sorting for rang and moyRachat
+          setModuleInfo(null); // Clear module info when not sorting by module
+
+          const params: {
+            page: number;
+            limit: number;
+            sortBy: string;
+            search?: string;
+            specialty?: string;
+            promo?: string;
+          } = {
+            page: currentPage,
+            limit: 50,
+            sortBy: sortBy === "moyRachat" ? "moyRachat" : "rang",
+          };
+
+          if (searchTerm) params.search = searchTerm;
+          if (specialtyFilter !== "all") params.specialty = specialtyFilter;
+          if (promoFilter !== "all") params.promo = promoFilter;
+
+          const response = await apiService.getStudents(params);
+          console.log("Regular response:", response); // Debug log
+          console.log("Regular response structure:", {
+            hasData: "data" in response,
+            hasStudents: response.data?.students || response.students,
+            keys: Object.keys(response),
+          });
+
+          const data = response.data || response;
+          console.log("Using data:", data);
+
+          setStudents(data.students || []);
+          setTotalPages(data.pagination?.totalPages || 0);
+          setTotalStudents(data.pagination?.totalStudents || 0);
+        }
       } catch (error) {
         console.error("Failed to fetch students:", error);
-        toast.error("Impossible de charger les étudiants");
+        console.error("Error details:", error.message);
+        toast.error(`Impossible de charger les étudiants: ${error.message}`);
       } finally {
         setLoading(false);
       }
     };
 
     fetchStudents();
-  }, [currentPage, searchTerm, specialtyFilter, promoFilter, sortBy]);
+  }, [
+    currentPage,
+    searchTerm,
+    specialtyFilter,
+    promoFilter,
+    sortBy,
+    moduleFilter,
+  ]);
+
+  // Reset module filter when not sorting by module
+  useEffect(() => {
+    if (sortBy !== "module") {
+      setModuleFilter("all");
+    }
+  }, [sortBy]);
 
   useEffect(() => {
     const fetchPromos = async () => {
@@ -201,7 +301,9 @@ const StudentList = () => {
             </Select>
             <Select
               value={sortBy}
-              onValueChange={(v) => setSortBy(v as "rang" | "moyRachat")}
+              onValueChange={(v) =>
+                setSortBy(v as "rang" | "moyRachat" | "module")
+              }
             >
               <SelectTrigger className="w-full md:w-[200px]">
                 <SelectValue placeholder="Trier par" />
@@ -209,8 +311,36 @@ const StudentList = () => {
               <SelectContent>
                 <SelectItem value="rang">Trier par Rang</SelectItem>
                 <SelectItem value="moyRachat">Trier par Moyenne</SelectItem>
+                <SelectItem value="module">Trier par Module</SelectItem>
               </SelectContent>
             </Select>
+            {sortBy === "module" && (
+              <Select value={moduleFilter} onValueChange={setModuleFilter}>
+                <SelectTrigger className="w-full md:w-[200px]">
+                  <SelectValue placeholder="Choisir un module" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Sélectionner Module</SelectItem>
+                  <SelectItem value="SYS1">SYS1 (S1)</SelectItem>
+                  <SelectItem value="RES1">RES1 (S1)</SelectItem>
+                  <SelectItem value="ANUM">ANUM (S1)</SelectItem>
+                  <SelectItem value="RO">RO (S1)</SelectItem>
+                  <SelectItem value="ORG">ORG (S1)</SelectItem>
+                  <SelectItem value="LANG1">LANG1 (S1)</SelectItem>
+                  <SelectItem value="IGL">IGL (S1)</SelectItem>
+                  <SelectItem value="THP">THP (S1)</SelectItem>
+                  <SelectItem value="MCSI">MCSI (S2)</SelectItem>
+                  <SelectItem value="BDD">BDD (S2)</SelectItem>
+                  <SelectItem value="SEC">SEC (S2)</SelectItem>
+                  <SelectItem value="CPROJ">CPROJ (S2)</SelectItem>
+                  <SelectItem value="PROJ">PROJ (S2)</SelectItem>
+                  <SelectItem value="LANG2">LANG2 (S2)</SelectItem>
+                  <SelectItem value="ARCH">ARCH (S2)</SelectItem>
+                  <SelectItem value="SYS2">SYS2 (S2)</SelectItem>
+                  <SelectItem value="RES2">RES2 (S2)</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <Button onClick={handleExport} variant="outline" className="gap-2">
               <Download className="h-4 w-4" />
               Exporter
@@ -219,15 +349,39 @@ const StudentList = () => {
         </Card>
 
         {/* Results Count */}
-        <p className="text-sm text-muted-foreground">
-          Affichage de {students.length} sur {totalStudents} étudiants
-          {totalPages > 1 && (
-            <span>
-              {" "}
-              - Page {currentPage} sur {totalPages}
-            </span>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Affichage de {students.length} sur {totalStudents} étudiants
+            {totalPages > 1 && (
+              <span>
+                {" "}
+                - Page {currentPage} sur {totalPages}
+              </span>
+            )}
+          </p>
+          {sortBy === "module" && moduleFilter !== "all" && moduleInfo && (
+            <div className="text-right">
+              <p className="text-sm text-primary font-medium">
+                Classé par module: {moduleFilter}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Moyenne: {moduleInfo.average_grade.toFixed(2)} | Max:{" "}
+                {moduleInfo.highest_grade.toFixed(2)} | Min:{" "}
+                {moduleInfo.lowest_grade.toFixed(2)}
+              </p>
+            </div>
           )}
-        </p>
+          {sortBy === "module" && moduleFilter !== "all" && !moduleInfo && (
+            <p className="text-sm text-primary font-medium">
+              Classé par module: {moduleFilter}
+            </p>
+          )}
+          {sortBy === "module" && moduleFilter === "all" && (
+            <p className="text-sm text-amber-600 font-medium">
+              Sélectionnez un module pour voir le classement
+            </p>
+          )}
+        </div>
 
         {/* Table - Desktop */}
         {!isMobile && (
@@ -245,6 +399,16 @@ const StudentList = () => {
                     <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
                       Moy Rachat
                     </th>
+                    {sortBy === "module" && moduleFilter !== "all" && (
+                      <>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
+                          Rang {moduleFilter}
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
+                          Note {moduleFilter}
+                        </th>
+                      </>
+                    )}
                     <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
                       Spécialité Recommandée
                     </th>
@@ -259,7 +423,12 @@ const StudentList = () => {
                 <tbody className="divide-y divide-border">
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center">
+                      <td
+                        colSpan={
+                          sortBy === "module" && moduleFilter !== "all" ? 8 : 6
+                        }
+                        className="px-6 py-12 text-center"
+                      >
                         <div className="flex flex-col items-center">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                           <p className="text-muted-foreground mt-2">
@@ -271,7 +440,9 @@ const StudentList = () => {
                   ) : students.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={
+                          sortBy === "module" && moduleFilter !== "all" ? 8 : 6
+                        }
                         className="px-6 py-12 text-center text-muted-foreground"
                       >
                         Aucun étudiant trouvé
@@ -299,6 +470,32 @@ const StudentList = () => {
                             ? student.moy_rachat.toFixed(2)
                             : "N/A"}
                         </td>
+                        {sortBy === "module" && moduleFilter !== "all" && (
+                          <>
+                            <td className="px-6 py-4 text-sm text-foreground">
+                              <span className="font-semibold text-primary">
+                                #{student.module_rank || "N/A"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-foreground">
+                              <span
+                                className={`font-semibold ${
+                                  student.module_grade
+                                    ? student.module_grade >= 14
+                                      ? "text-green-600"
+                                      : student.module_grade >= 10
+                                      ? "text-yellow-600"
+                                      : "text-red-600"
+                                    : "text-gray-400"
+                                }`}
+                              >
+                                {student.module_grade
+                                  ? student.module_grade.toFixed(2)
+                                  : "N/A"}
+                              </span>
+                            </td>
+                          </>
+                        )}
                         <td className="px-6 py-4">
                           <Badge
                             variant="secondary"
@@ -395,6 +592,38 @@ const StudentList = () => {
                             : "N/A"}
                         </span>
                       </div>
+                      {sortBy === "module" && moduleFilter !== "all" && (
+                        <>
+                          <div>
+                            <span className="text-muted-foreground">
+                              Rang {moduleFilter}:{" "}
+                            </span>
+                            <span className="font-medium text-primary">
+                              #{student.module_rank || "N/A"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              Note {moduleFilter}:{" "}
+                            </span>
+                            <span
+                              className={`font-medium ${
+                                student.module_grade
+                                  ? student.module_grade >= 14
+                                    ? "text-green-600"
+                                    : student.module_grade >= 10
+                                    ? "text-yellow-600"
+                                    : "text-red-600"
+                                  : "text-gray-400"
+                              }`}
+                            >
+                              {student.module_grade
+                                ? student.module_grade.toFixed(2)
+                                : "N/A"}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     <Button

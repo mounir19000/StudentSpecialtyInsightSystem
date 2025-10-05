@@ -48,6 +48,22 @@ class ApiService {
     return this.request(`/students?${queryParams}`);
   }
 
+  async getStudentsByModule(params: {
+    module: string;
+    page?: number;
+    limit?: number;
+    search?: string;
+    specialty?: string;
+    promo?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) queryParams.append(key, value.toString());
+    });
+
+    return this.request(`/students/rank-by-module?${queryParams}`);
+  }
+
   async getStudent(matricule: string) {
     // Double encode to handle slashes in matricules like "22/0040"
     const encodedMatricule = encodeURIComponent(encodeURIComponent(matricule));
