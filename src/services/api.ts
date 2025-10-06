@@ -119,6 +119,82 @@ class ApiService {
       body: JSON.stringify(filters),
     });
   }
+
+  // Analysis API
+  async getAvailableModules(promo: string) {
+    return this.request(`/analysis/modules/${promo}`);
+  }
+
+  async performPCA(data: {
+    promo: string;
+    modules: string[];
+    n_components?: number;
+  }) {
+    return this.request("/analysis/pca", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async performClustering(data: {
+    promo: string;
+    modules: string[];
+    n_clusters?: number;
+    auto_detect_k: boolean;
+    max_k: number;
+  }) {
+    return this.request("/analysis/clustering", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async performElbowAnalysis(data: {
+    promo: string;
+    modules: string[];
+    max_k: number;
+  }) {
+    return this.request("/analysis/elbow", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async generateBiplot(data: {
+    promo: string;
+    modules: string[];
+    pc1: number;
+    pc2: number;
+    n_clusters: number;
+  }) {
+    return this.request("/analysis/biplot", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async exportAnalysis(
+    promo: string,
+    modules: string[],
+    format: string = "json"
+  ) {
+    const params = new URLSearchParams({
+      modules: modules.join(","),
+      format: format,
+    });
+
+    if (format === "csv") {
+      const response = await fetch(
+        `${API_BASE_URL}/analysis/export/${promo}?${params}`,
+        {
+          headers: this.getAuthHeaders(),
+        }
+      );
+      return response.blob();
+    } else {
+      return this.request(`/analysis/export/${promo}?${params}`);
+    }
+  }
 }
 
 export const apiService = new ApiService();

@@ -6,6 +6,7 @@ import {
   Upload as UploadIcon,
   GraduationCap,
   LogOut,
+  Brain,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ const menuItems = [
   { title: "Télécharger Données", url: "/", icon: UploadIcon },
   { title: "Tableau de Bord", url: "/dashboard", icon: LayoutDashboard },
   { title: "Étudiants", url: "/students", icon: Users },
+  { title: "Analyse des Données", url: "/analysis", icon: Brain },
 ];
 
 function AppSidebar() {

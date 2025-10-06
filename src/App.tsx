@@ -11,6 +11,7 @@ import Upload from "./pages/Upload";
 import Dashboard from "./pages/Dashboard";
 import StudentList from "./pages/StudentList";
 import StudentDetail from "./pages/StudentDetail";
+import Analysis from "./pages/Analysis";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,7 +34,11 @@ const App = () => (
                       <Route path="/" element={<Upload />} />
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/students" element={<StudentList />} />
-                      <Route path="/student/:matricule" element={<StudentDetail />} />
+                      <Route
+                        path="/student/:matricule"
+                        element={<StudentDetail />}
+                      />
+                      <Route path="/analysis" element={<Analysis />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Layout>
