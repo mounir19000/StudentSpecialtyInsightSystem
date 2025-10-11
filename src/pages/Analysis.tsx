@@ -141,6 +141,9 @@ const Analysis: React.FC = () => {
   const [selectedK, setSelectedK] = useState<number | null>(null);
   const [elbowCompleted, setElbowCompleted] = useState(false);
 
+  // PCA tab control for export
+  const [activePCATab, setActivePCATab] = useState("variance");
+
   // Biplot parameters
   const [selectedPC1, setSelectedPC1] = useState(1);
   const [selectedPC2, setSelectedPC2] = useState(2);
@@ -622,7 +625,10 @@ const Analysis: React.FC = () => {
         window.dispatchEvent(new Event("resize"));
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // Check if PCA element exists and capture it
+        // Capture variance chart first (default tab)
+        setActivePCATab("variance");
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for tab to switch
+
         const pcaElement = document.getElementById("pca-variance-chart");
         console.log("PCA variance chart element:", pcaElement);
         if (pcaElement) {
@@ -637,12 +643,50 @@ const Analysis: React.FC = () => {
               backgroundColor: "#ffffff",
             });
             capturedCharts["pca-variance-chart"] = canvas;
-            pcaCaptured = true;
-            console.log("PCA chart captured successfully");
+            console.log("PCA variance chart captured successfully");
           } catch (error) {
-            console.error("Failed to capture PCA chart:", error);
+            console.error("Failed to capture PCA variance chart:", error);
           }
         }
+
+        // Now capture cumulative variance chart
+        setActivePCATab("cumulative");
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for tab to switch
+
+        // Force plots to redraw after tab switch
+        window.dispatchEvent(new Event("resize"));
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        const pcaCumulativeElement = document.getElementById(
+          "pca-cumulative-chart"
+        );
+        console.log("PCA cumulative chart element:", pcaCumulativeElement);
+        if (pcaCumulativeElement) {
+          const rect = pcaCumulativeElement.getBoundingClientRect();
+          console.log(
+            "PCA cumulative chart dimensions:",
+            rect.width,
+            "x",
+            rect.height
+          );
+
+          try {
+            const canvas = await html2canvas(pcaCumulativeElement, {
+              useCORS: true,
+              scale: 2,
+              logging: false,
+              backgroundColor: "#ffffff",
+            });
+            capturedCharts["pca-cumulative-chart"] = canvas;
+            pcaCaptured = true;
+            console.log("PCA cumulative chart captured successfully");
+          } catch (error) {
+            console.error("Failed to capture PCA cumulative chart:", error);
+          }
+        }
+
+        // Reset to variance tab for better UX
+        setActivePCATab("variance");
       }
 
       if (results.clustering) {
@@ -939,7 +983,11 @@ const Analysis: React.FC = () => {
                   </div>
 
                   {/* Variance Plots */}
-                  <Tabs defaultValue="variance" className="w-full">
+                  <Tabs
+                    value={activePCATab}
+                    onValueChange={setActivePCATab}
+                    className="w-full"
+                  >
                     <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="variance">
                         Variance Expliquée
@@ -970,7 +1018,10 @@ const Analysis: React.FC = () => {
 
                     <TabsContent value="cumulative" className="space-y-4">
                       {results.pca.cumulative_plot && (
-                        <div className="w-full flex items-center justify-center">
+                        <div
+                          id="pca-cumulative-chart"
+                          className="w-full flex items-center justify-center"
+                        >
                           <Plot
                             data={JSON.parse(results.pca.cumulative_plot).data}
                             layout={

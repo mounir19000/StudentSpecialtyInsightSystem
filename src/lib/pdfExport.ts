@@ -231,9 +231,7 @@ export const generateAnalysisPDF = async (
     "normal"
   );
   addText("Colonnes sélectionnées:", 12, "bold");
-  data.selectedColumns.forEach((col) => {
-    addText(`• ${col}`, 10, "normal");
-  });
+  addText(data.selectedColumns.join(" - "), 10, "normal");
   addText("", 12); // Empty line
 
   // 2. PCA Results
@@ -246,6 +244,18 @@ export const generateAnalysisPDF = async (
     } catch (error) {
       console.warn("Could not capture PCA chart, using fallback");
       addText("Graphique de variance ACP non disponible", 12, "normal");
+    }
+
+    // Try to capture PCA Cumulative Variance Chart, with fallback
+    try {
+      await addChart("pca-cumulative-chart", "Variance cumulative expliquée");
+    } catch (error) {
+      console.warn("Could not capture PCA cumulative chart, using fallback");
+      addText(
+        "Graphique de variance cumulative ACP non disponible",
+        12,
+        "normal"
+      );
     }
 
     // PCA Summary (this will always work as it's text-based)
@@ -421,8 +431,7 @@ export const generateAnalysisPDF = async (
     }
   }
 
-  // Add table to PDF
-  let tableY = yPosition;
+  // Add table to PDF immediately after the title
   const rowHeight = 8;
   const colWidth = contentWidth / 2;
 
@@ -441,53 +450,21 @@ export const generateAnalysisPDF = async (
     // Draw row background for header
     if (index === 0) {
       pdf.setFillColor(240, 240, 240);
-      pdf.rect(margin, tableY - 2, contentWidth, rowHeight, "F");
+      pdf.rect(margin, yPosition - 2, contentWidth, rowHeight, "F");
     }
 
     // Draw cell borders
-    pdf.rect(margin, tableY - 2, colWidth, rowHeight);
-    pdf.rect(margin + colWidth, tableY - 2, colWidth, rowHeight);
+    pdf.rect(margin, yPosition - 2, colWidth, rowHeight);
+    pdf.rect(margin + colWidth, yPosition - 2, colWidth, rowHeight);
 
     // Add text
-    pdf.text(row[0], margin + 2, tableY + 4);
-    pdf.text(row[1], margin + colWidth + 2, tableY + 4);
+    pdf.text(row[0], margin + 2, yPosition + 4);
+    pdf.text(row[1], margin + colWidth + 2, yPosition + 4);
 
-    tableY += rowHeight;
+    yPosition += rowHeight;
   });
 
-  yPosition = tableY + 10;
-
-  // 6. Conclusions
-  addPageIfNeeded(40);
-  addText("6. CONCLUSIONS", 16, "bold");
-  addText("Cette analyse a permis de:", 12, "normal");
-  addText(
-    "• Réduire la dimensionnalité des données grâce à l'ACP",
-    10,
-    "normal"
-  );
-  addText(
-    "• Identifier des groupes d'étudiants similaires par clustering",
-    10,
-    "normal"
-  );
-  addText(
-    "• Visualiser les relations entre variables et observations",
-    10,
-    "normal"
-  );
-  addText(
-    "• Préparer les données pour la prédiction de spécialités",
-    10,
-    "normal"
-  );
-
-  addText("", 12);
-  addText(
-    "Les résultats peuvent être utilisés pour améliorer le processus d'orientation des étudiants.",
-    10,
-    "normal"
-  );
+  yPosition += 10; // Add some spacing after the table
 
   // Add footer with page numbers
   const pageCount = (
