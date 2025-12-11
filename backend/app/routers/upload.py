@@ -95,17 +95,24 @@ async def upload_student_data(
         # Generate specialty recommendations
         students_with_predictions = predict_specialties(students_data)
         
+        # Get valid database columns
+        valid_columns = {c.name for c in models.Student.__table__.columns}
+        
         # Save students to database
         processed_students = 0
         errors = []
         
         for student_data in students_with_predictions:
             try:
-                db_student = models.Student(**student_data)
+                # Filter out fields that don't exist in the database model
+                # Keep profile and explanation for potential logging, but don't save to DB
+                filtered_data = {k: v for k, v in student_data.items() if k in valid_columns}
+                
+                db_student = models.Student(**filtered_data)
                 db.add(db_student)
                 processed_students += 1
             except Exception as e:
-                error_msg = f"Erreur pour l'étudiant {student_data.get('matricule', 'N/A')}: {str(e)}"
+                error_msg = f"Étudiant {student_data.get('matricule', 'N/A')}: {type(e).__name__} - {str(e)}"
                 errors.append(error_msg)
                 logger.error(error_msg)
                 continue

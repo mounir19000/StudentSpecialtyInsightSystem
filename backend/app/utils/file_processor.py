@@ -75,7 +75,9 @@ async def process_student_file(file: UploadFile, promo: str) -> List[Dict[str, A
                 'rang_s2': _safe_int(row['Rang S2']),
                 'moy_s2': _safe_float(row['Moy S2']),
                 'moy_rachat': _safe_float(row['Moy Rachat']),
-                'grades': grades
+                'grades': grades,
+                # Add individual grade columns for specialty prediction
+                **grades  # Unpack grades dict to add columns at top level
             }
             
             students_data.append(student_data)
